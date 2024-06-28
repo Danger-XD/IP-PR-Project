@@ -1,0 +1,181 @@
+# Install Kaggle package
+!pip install kaggle
+
+# configuring the path of Kaggle.json file
+!mkdir -p ~/.kaggle
+!cp kaggle.json ~/.kaggle/
+!chmod 600 ~/.kaggle/kaggle.json
+
+# API to fetch the dataset from Kaggle
+!kaggle datasets download -d sartajbhuvaji/brain-tumor-classification-mri
+
+# extracting the compessed Dataset
+from zipfile import ZipFile
+dataset = '/content/brain-tumor-classification-mri.zip'
+
+with ZipFile(dataset,'r') as zip:
+  zip.extractall()
+  print('The dataset is extracted')
+
+# This Python 3 environment comes with many helpful analytics libraries installed
+# It is defined by the kaggle/python Docker image: https://github.com/kaggle/docker-python
+# For example, here's several helpful packages to load
+
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+
+# Input data files are available in the read-only "../input/" directory
+# For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory
+
+import os
+
+from zipfile import ZipFile
+
+# Define the path to the zip file
+zip_file_path = '/content/brain-tumor-classification-mri.zip'
+
+# Define the directory where you want to extract the dataset
+extracted_dir = '/content/brain_tumor_dataset'
+
+# Extract the contents of the zip file
+with ZipFile(zip_file_path, 'r') as zip_ref:
+    zip_ref.extractall(extracted_dir)
+
+# Traverse the extracted directory
+for dirname, _, filenames in os.walk(extracted_dir):
+    for filename in filenames:
+        # Print the full path of each file
+        print(os.path.join(dirname, filename))
+
+# You can write up to 20GB to the current directory (/kaggle/working/) that gets preserved as output when you create a version using "Save & Run All"
+# You can also write temporary files to /kaggle/temp/, but they won't be saved outside of the current session
+
+import keras
+from keras.models import Sequential
+from keras.layers import Conv2D,Flatten,Dense,MaxPooling2D,Dropout
+from sklearn.metrics import accuracy_score
+
+import ipywidgets as widgets
+import io
+from PIL import Image
+import tqdm
+from sklearn.model_selection import train_test_split
+import cv2
+from sklearn.utils import shuffle
+import tensorflow as tf
+
+import os
+import cv2
+import numpy as np
+
+X_train = []
+Y_train = []
+image_size = 150
+labels = ['glioma_tumor', 'meningioma_tumor', 'no_tumor', 'pituitary_tumor']
+
+# Training data
+for label in labels:
+    folder_path = os.path.join('/content/brain_tumor_dataset/Training', label)
+    for filename in os.listdir(folder_path):
+        img = cv2.imread(os.path.join(folder_path, filename))
+        img = cv2.resize(img, (image_size, image_size))
+        X_train.append(img)
+        Y_train.append(label)
+
+# Testing data
+for label in labels:
+    folder_path = os.path.join('/content/brain_tumor_dataset/Testing', label)
+    for filename in os.listdir(folder_path):
+        img = cv2.imread(os.path.join(folder_path, filename))
+        img = cv2.resize(img, (image_size, image_size))
+        X_train.append(img)
+        Y_train.append(label)
+
+X_train = np.array(X_train)
+Y_train = np.array(Y_train)
+
+
+X_train,Y_train = shuffle(X_train,Y_train,random_state=101)
+X_train.shape
+
+X_train,X_test,y_train,y_test = train_test_split(X_train,Y_train,test_size=0.1,random_state=101)
+
+y_train_new = []
+for i in y_train:
+    y_train_new.append(labels.index(i))
+y_train=y_train_new
+y_train = tf.keras.utils.to_categorical(y_train)
+
+y_test_new = []
+for i in y_test:
+    y_test_new.append(labels.index(i))
+y_test=y_test_new
+y_test = tf.keras.utils.to_categorical(y_test)
+
+model = Sequential()
+model.add(Conv2D(32,(3,3),activation = 'relu',input_shape=(150,150,3)))
+model.add(Conv2D(64,(3,3),activation='relu'))
+model.add(MaxPooling2D(2,2))
+model.add(Dropout(0.3))
+model.add(Conv2D(64,(3,3),activation='relu'))
+model.add(Conv2D(64,(3,3),activation='relu'))
+model.add(Dropout(0.3))
+model.add(MaxPooling2D(2,2))
+model.add(Dropout(0.3))
+model.add(Conv2D(128,(3,3),activation='relu'))
+model.add(Conv2D(128,(3,3),activation='relu'))
+model.add(Conv2D(128,(3,3),activation='relu'))
+model.add(MaxPooling2D(2,2))
+model.add(Dropout(0.3))
+model.add(Conv2D(128,(3,3),activation='relu'))
+model.add(Conv2D(256,(3,3),activation='relu'))
+model.add(MaxPooling2D(2,2))
+model.add(Dropout(0.3))
+model.add(Flatten())
+model.add(Dense(512,activation = 'relu'))
+model.add(Dense(512,activation = 'relu'))
+model.add(Dropout(0.3))
+model.add(Dense(4,activation='softmax'))
+
+model.summary()
+model.compile(loss='categorical_crossentropy',optimizer='Adam',metrics=['accuracy'])
+history = model.fit(X_train,y_train,epochs=10,validation_split=0.1)
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+model.save('braintumor.h5')
+
+acc = history.history['accuracy']
+val_acc = history.history['val_accuracy']
+epochs = range(len(acc))
+fig = plt.figure(figsize=(14,7))
+plt.plot(epochs,acc,'r',label="Training Accuracy")
+plt.plot(epochs,val_acc,'b',label="Validation Accuracy")
+plt.legend(loc='upper left')
+plt.show()
+
+loss = history.history['loss']
+val_loss = history.history['val_loss']
+epochs = range(len(loss))
+fig = plt.figure(figsize=(14,7))
+plt.plot(epochs,loss,'r',label="Training loss")
+plt.plot(epochs,val_loss,'b',label="Validation loss")
+plt.legend(loc='upper left')
+plt.show()
+
+img = cv2.imread('/content/Training/pituitary_tumor/p (107).jpg')
+img = cv2.resize(img,(150,150))
+img_array = np.array(img)
+img_array.shape
+
+img_array = img_array.reshape(1,150,150,3)
+img_array.shape
+
+from tensorflow.keras.preprocessing import image
+img = image.load_img('/content/Training/pituitary_tumor/p (107).jpg')
+plt.imshow(img,interpolation='nearest')
+plt.show()
+
+a=model.predict(img_array)
+indices = a.argmax()
+indices
